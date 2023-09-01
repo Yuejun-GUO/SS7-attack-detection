@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from pytorch_tabular import TabularModel
+import time
 from pytorch_tabular.config import DataConfig, OptimizerConfig, TrainerConfig
 from pytorch_tabular.models import (AutoIntConfig, CategoryEmbeddingModelConfig,
                                     FTTransformerConfig, GatedAdditiveTreeEnsembleConfig,
@@ -73,6 +74,7 @@ def obtain_tabular_model(args):
         checkpoints_name=f"{args.model}_{args.exp_id}",
         load_best=True,  # After training, load the best checkpoint
         progress_bar='none',
+        accelerator="gpu"
     )
     optimizer_config = OptimizerConfig()
     if args.model == "AutoInt":
@@ -177,6 +179,8 @@ def main():
             del pred_df
             del result
             gc.collect()
+        if args.exp_id == 0:
+            sys.exit()
 
 
 if __name__ == "__main__":

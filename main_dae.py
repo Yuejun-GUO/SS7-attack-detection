@@ -3,9 +3,11 @@ import os
 import gc
 import json
 import glob
+import sys
 import torch
 import numpy as np
 import pandas as pd
+import time
 from sklearn.model_selection import train_test_split
 from pytorch_tabular import TabularModel
 from pytorch_tabular.config import DataConfig, OptimizerConfig, TrainerConfig
@@ -45,15 +47,15 @@ def main():
     parser.add_argument("--data_name", default="Simulated_SS7", type=str, help="name of the dataset", choices=['Simulated_SS7', 'POST_SS7'])
     parser.add_argument("--output_dir", default="results", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
-    parser.add_argument("--epochs", default=200, type=int, help="Number of epochs for training")
+    parser.add_argument("--epochs", default=1, type=int, help="Number of epochs for training")
     parser.add_argument("--model", default="DAE", type=str, help="Name of the model for training",
                         choices=["DAE"])
 
     args = parser.parse_args()
-    obtain_ssl_data_POST(args)
     os.makedirs(f"{args.output_dir}/{args.data_name}/logs", exist_ok=True)
     os.makedirs(f"{args.output_dir}/{args.data_name}/saved_models", exist_ok=True)
-    for args.exp_id in np.arange(1, 2):
+    for args.exp_id in np.arange(100):
+        obtain_ssl_data_POST(args)
         logger_name = f"{args.output_dir}/{args.data_name}/logs/{args.model}_{args.exp_id}.json"
         train_data, test_data = obtain_data(args)
         optimizer_config = OptimizerConfig()
@@ -78,6 +80,7 @@ def main():
                 checkpoints_path=f"{args.output_dir}/{args.data_name}/saved_models",
                 checkpoints_name=f"ssl_{args.model}_{args.exp_id}",
                 load_best=True,  # After training, load the best checkpoint
+                accelerator="gpu"
             )
         encoder_config = CategoryEmbeddingModelConfig(
                 task="backbone",
@@ -109,6 +112,7 @@ def main():
                 checkpoints_path=f"{args.output_dir}/{args.data_name}/saved_models",
                 checkpoints_name=f"ft_{args.model}_{args.exp_id}",
                 load_best=True,  # After training, load the best checkpoint
+                accelerator="gpu"
             )
         tabular_model = ssl_tabular_model.create_finetune_model(
                 task="classification",
@@ -128,7 +132,6 @@ def main():
         pred_df = tabular_model.predict(test_data)
         np.save(f"{args.output_dir}/{args.data_name}/logs/true_{args.exp_id}.npy", test_data['label'])
         np.save(f"{args.output_dir}/{args.data_name}/logs/prediction_{args.exp_id}.npy", pred_df["prediction"])
-        pdb.set_trace()
         result = evaluate(test_data['label'], pred_df["prediction"])
         with open(logger_name, "w") as outfile:
             outfile.write(json.dumps(result))
